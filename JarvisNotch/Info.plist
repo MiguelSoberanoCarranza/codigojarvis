@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleIdentifier</key>
+    <string>com.jarvis.JarvisNotch</string>
+    <key>CFBundleName</key>
+    <string>JarvisNotch</string>
+    <key>CFBundleExecutable</key>
+    <string>JarvisNotch</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleShortVersionString</key>
+    <string>1.0</string>
+    <key>LSUIElement</key>
+    <true/>
+    <key>NSPrincipalClass</key>
+    <string>NSApplication</string>
+    <key>NSAppleEventsUsageDescription</key>
+    <string>JarvisNotch necesita controlar Spotify y Apple Music para mostrar la información del tema actual y habilitar los controles de reproducción.</string>
+    <key>NSLocationWhenInUseUsageDescription</key>
+    <string>JarvisNotch necesita tu ubicación para obtener el clima local en tiempo real.</string>
+    <key>NSCameraUsageDescription</key>
+    <string>JarvisNotch necesita acceso a la cámara para mostrar el espejo en vivo en tu notch.</string>
+    <key>NSAppTransportSecurity</key>
+    <dict>
+        <key>NSAllowsArbitraryLoads</key>
+        <true/>
+    </dict>
+</dict>
+</plist>
