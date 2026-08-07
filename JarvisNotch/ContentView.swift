@@ -18,6 +18,11 @@ struct ContentView: View {
     
     let sysTimer = Timer.publish(every: 5, on: .main, in: .common).autoconnect()
     
+    /// Collapsed pill is visible only when the setting is on (or while expanded).
+    private var isCollapsedVisible: Bool {
+        stateManager.isExpanded || stateManager.showMinimizedDisplay
+    }
+    
     var body: some View {
         ZStack(alignment: .top) {
             // 1. Morphing Black Dynamic Island Background Container
@@ -70,7 +75,7 @@ struct ContentView: View {
                         dashboardView
                             .transition(.asymmetric(insertion: .move(edge: .leading), removal: .move(edge: .leading)).combined(with: .opacity))
                     }
-                } else {
+                } else if stateManager.showMinimizedDisplay {
                     collapsedPill
                         .transition(.opacity)
                 }
@@ -80,6 +85,8 @@ struct ContentView: View {
                 height: max(stateManager.collapsedHeight, stateManager.isExpanded ? stateManager.expandedHeight : stateManager.collapsedHeight)
             )
         }
+        .opacity(isCollapsedVisible ? 1 : 0)
+        .animation(.easeInOut(duration: 0.2), value: stateManager.showMinimizedDisplay)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .contentShape(Rectangle())
         .onReceive(sysTimer) { _ in
@@ -274,6 +281,51 @@ struct ContentView: View {
             }
             .padding(.horizontal, 16)
             .padding(.top, 8)
+            
+            // Minimized display toggle — hides collapsed wings that cover the menu bar / top UI
+            HStack(spacing: 12) {
+                Image(systemName: "rectangle.topthird.inset.filled")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.cyan)
+                    .frame(width: 28, height: 28)
+                    .background(Circle().fill(Color.cyan.opacity(0.18)))
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Mostrar minimizado")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(.white)
+                    Text("Clima y batería a los lados del notch. Desactívalo si tapa la barra de menús.")
+                        .font(.system(size: 9, weight: .medium))
+                        .foregroundColor(.white.opacity(0.55))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                
+                Spacer(minLength: 8)
+                
+                Toggle("", isOn: Binding(
+                    get: { stateManager.showMinimizedDisplay },
+                    set: { newValue in
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            stateManager.showMinimizedDisplay = newValue
+                        }
+                    }
+                ))
+                .toggleStyle(.switch)
+                .labelsHidden()
+                .scaleEffect(0.75)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color.white.opacity(0.06))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                    )
+            )
+            .padding(.horizontal, 16)
+            .padding(.top, 4)
             
             Spacer()
         }
