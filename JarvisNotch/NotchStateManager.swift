@@ -5,6 +5,8 @@ import SwiftUI
 class NotchStateManager: ObservableObject {
     weak var window: NSWindow?
     
+    private static let showMinimizedKey = "showMinimizedDisplay"
+    
     // UI state: controls SwiftUI transitions and visibility of widgets
     @Published var isExpanded: Bool = false {
         didSet {
@@ -12,6 +14,14 @@ class NotchStateManager: ObservableObject {
                 guard let self = self, let window = self.window else { return }
                 window.ignoresMouseEvents = !self.isExpanded
             }
+        }
+    }
+    
+    /// When false, the collapsed notch pill (weather/battery wings) is hidden so it does not cover the menu bar / top UI.
+    /// Hovering the physical notch area still expands the dashboard.
+    @Published var showMinimizedDisplay: Bool {
+        didSet {
+            UserDefaults.standard.set(showMinimizedDisplay, forKey: Self.showMinimizedKey)
         }
     }
     
@@ -24,7 +34,13 @@ class NotchStateManager: ObservableObject {
     
     private var mousePollTimer: Timer?
     
-    init() {}
+    init() {
+        if UserDefaults.standard.object(forKey: Self.showMinimizedKey) == nil {
+            self.showMinimizedDisplay = true
+        } else {
+            self.showMinimizedDisplay = UserDefaults.standard.bool(forKey: Self.showMinimizedKey)
+        }
+    }
     
     deinit {
         mousePollTimer?.invalidate()
