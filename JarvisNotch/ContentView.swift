@@ -7,6 +7,9 @@ struct ContentView: View {
     @ObservedObject var stateManager: NotchStateManager
     @StateObject private var mediaService = MediaService()
     @StateObject private var weatherService = WeatherService()
+    @StateObject private var calendarService = CalendarService()
+    @StateObject private var focusTimer = FocusTimerService()
+    @StateObject private var quickNote = QuickNoteStore()
     
     @State private var batteryPercentage: Int = 100
     @State private var isCharging: Bool = false
@@ -137,9 +140,9 @@ struct ContentView: View {
     
     // MARK: - Expanded Dashboard View
     private var dashboardView: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 10) {
             // Top Header Bar
-            HStack {
+            HStack(spacing: 10) {
                 Text("JARVIS NOTCH")
                     .font(.system(size: 10, weight: .black))
                     .tracking(2)
@@ -152,6 +155,22 @@ struct ContentView: View {
                     )
                 
                 Spacer()
+                
+                // Weather chip in header
+                HStack(spacing: 4) {
+                    Text(weatherService.conditionEmoji)
+                        .font(.system(size: 11))
+                    Text(weatherService.temperature)
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(.white.opacity(0.85))
+                    Text(weatherService.city)
+                        .font(.system(size: 9, weight: .medium))
+                        .foregroundColor(.white.opacity(0.45))
+                        .lineLimit(1)
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3)
+                .background(Capsule().fill(Color.white.opacity(0.08)))
                 
                 // Settings / Shortcuts Button
                 Button(action: {
@@ -179,22 +198,22 @@ struct ContentView: View {
                 .padding(.vertical, 2)
                 .background(Capsule().fill(Color.white.opacity(0.1)))
             }
-            .padding(.horizontal, 16)
-            .padding(.top, stateManager.collapsedHeight - 16 + 6)
+            .padding(.horizontal, 14)
+            .padding(.top, stateManager.collapsedHeight - 16 + 4)
             
-            // Dashboard Grid
-            HStack(spacing: 12) {
-                // LEFT: Music Card
+            // Dashboard strip: music + calendar + apps + note/focus + mirror
+            HStack(alignment: .top, spacing: 10) {
                 musicCard
-                
-                // RIGHT: Weather & Mirror Card
+                CalendarWidget(calendar: calendarService)
+                AppsWidget()
                 VStack(spacing: 10) {
-                    weatherCard
-                    mirrorCard
+                    NoteWidget(note: quickNote)
+                    FocusWidget(focus: focusTimer)
                 }
+                mirrorCard
             }
             .padding(.horizontal, 12)
-            .padding(.bottom, 12)
+            .padding(.bottom, 10)
         }
         .frame(width: stateManager.expandedWidth, height: stateManager.expandedHeight)
     }
@@ -381,66 +400,38 @@ struct ContentView: View {
             .padding(.horizontal, 6)
             
             // Media Controls
-            HStack(spacing: 16) {
+            HStack(spacing: 14) {
                 Button(action: { mediaService.previousTrack() }) {
                     Image(systemName: "backward.fill")
-                        .font(.system(size: 12))
+                        .font(.system(size: 11))
                         .foregroundColor(.white.opacity(0.8))
                 }
                 .buttonStyle(.plain)
                 
                 Button(action: { mediaService.playPause() }) {
                     Image(systemName: mediaService.isPlaying ? "pause.fill" : "play.fill")
-                        .font(.system(size: 14, weight: .bold))
+                        .font(.system(size: 13, weight: .bold))
                         .foregroundColor(.white)
-                        .frame(width: 28, height: 28)
+                        .frame(width: 26, height: 26)
                         .background(Circle().fill(Color.white.opacity(0.2)))
                 }
                 .buttonStyle(.plain)
                 
                 Button(action: { mediaService.nextTrack() }) {
                     Image(systemName: "forward.fill")
-                        .font(.system(size: 12))
+                        .font(.system(size: 11))
                         .foregroundColor(.white.opacity(0.8))
                 }
                 .buttonStyle(.plain)
             }
             .padding(.top, 2)
         }
-        .frame(width: 195, height: 215)
+        .frame(width: 150, height: 215)
         .background(
             RoundedRectangle(cornerRadius: 16)
                 .fill(Color.white.opacity(0.06))
                 .overlay(
                     RoundedRectangle(cornerRadius: 16)
-                        .stroke(Color.white.opacity(0.1), lineWidth: 1)
-                )
-        )
-    }
-    
-    private var weatherCard: some View {
-        HStack(spacing: 10) {
-            Text(weatherService.conditionEmoji)
-                .font(.system(size: 26))
-            
-            VStack(alignment: .leading, spacing: 1) {
-                Text(weatherService.temperature)
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundColor(.white)
-                Text(weatherService.city)
-                    .font(.system(size: 9, weight: .medium))
-                    .foregroundColor(.white.opacity(0.6))
-                    .lineLimit(1)
-            }
-            Spacer()
-        }
-        .padding(.horizontal, 10)
-        .frame(width: 205, height: 52)
-        .background(
-            RoundedRectangle(cornerRadius: 14)
-                .fill(Color.white.opacity(0.06))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 14)
                         .stroke(Color.white.opacity(0.1), lineWidth: 1)
                 )
         )
@@ -452,13 +443,12 @@ struct ContentView: View {
                 Image(systemName: isMirrorActive ? "camera.fill" : "camera.metering.unknown")
                     .font(.system(size: 9))
                     .foregroundColor(isMirrorActive ? .green : .purple)
-                Text("ESPEJO EN VIVO")
+                Text("ESPEJO")
                     .font(.system(size: 9, weight: .bold))
                     .foregroundColor(.white.opacity(0.8))
                 
                 Spacer()
                 
-                // Toggle Button ON/OFF
                 Button(action: {
                     withAnimation(.easeInOut(duration: 0.2)) {
                         isMirrorActive.toggle()
@@ -478,7 +468,7 @@ struct ContentView: View {
                 }
                 .buttonStyle(.plain)
             }
-            .padding(.horizontal, 4)
+            .padding(.horizontal, 2)
             
             ZStack {
                 if isMirrorActive {
@@ -498,12 +488,12 @@ struct ContentView: View {
                         .overlay(
                             VStack(spacing: 4) {
                                 Image(systemName: "video.slash.fill")
-                                    .font(.system(size: 16))
+                                    .font(.system(size: 14))
                                     .foregroundColor(.white.opacity(0.3))
-                                Text("Espejo Desactivado")
-                                    .font(.system(size: 9, weight: .medium))
+                                Text("Cámara off")
+                                    .font(.system(size: 8, weight: .medium))
                                     .foregroundColor(.white.opacity(0.4))
-                                Button("Activar Cámara") {
+                                Button("Activar") {
                                     withAnimation(.easeInOut(duration: 0.2)) {
                                         isMirrorActive = true
                                     }
@@ -511,13 +501,11 @@ struct ContentView: View {
                                 .font(.system(size: 9, weight: .bold))
                                 .foregroundColor(.purple)
                                 .buttonStyle(.plain)
-                                .padding(.top, 2)
                             }
-                            .padding(.bottom, 20)
+                            .padding(.bottom, 18)
                         )
                 }
                 
-                // Master Volume Overlay Bar at bottom
                 HStack(spacing: 6) {
                     Image(systemName: systemVolume == 0 ? "speaker.slash.fill" : "speaker.wave.2.fill")
                         .font(.system(size: 9))
@@ -538,8 +526,8 @@ struct ContentView: View {
                 .frame(maxHeight: .infinity, alignment: .bottom)
             }
         }
-        .padding(6)
-        .frame(width: 205, height: 153)
+        .padding(8)
+        .frame(width: 150, height: 215)
         .background(
             RoundedRectangle(cornerRadius: 14)
                 .fill(Color.white.opacity(0.06))

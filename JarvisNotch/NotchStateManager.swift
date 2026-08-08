@@ -29,8 +29,8 @@ class NotchStateManager: ObservableObject {
     let collapsedWidth: CGFloat = 318
     var collapsedHeight: CGFloat = 38.7
     
-    let expandedWidth: CGFloat = 450
-    let expandedHeight: CGFloat = 320
+    let expandedWidth: CGFloat = 780
+    let expandedHeight: CGFloat = 310
     
     private var mousePollTimer: Timer?
     
