@@ -28,9 +28,11 @@ swiftc -O -o JarvisNotch.app/Contents/MacOS/JarvisNotch \
     ContentView.swift \
     MediaService.swift \
     WeatherService.swift \
+    DashboardExtras.swift \
     -framework Cocoa \
     -framework SwiftUI \
     -framework IOKit \
+    -framework EventKit \
     -sdk "$(xcrun --show-sdk-path)"
 
 # 4. Copiar Info.plist al bundle

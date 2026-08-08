@@ -21,16 +21,22 @@ class InteractiveHostingView<Content: View>: NSHostingView<Content> {
         let height = self.bounds.height
         
         if stateManager.isExpanded {
-            // In expanded mode, the entire 450x320 area intercepts clicks
             return super.hitTest(point)
         } else {
-            // Collapsed: Click hits only the Left Wing or Right Wing
-            // Window is 450x320. Left wing and Right wing are centered (total width 318)
-            // Margins: (450 - 318)/2 = 66.
-            // Left wing: X [66, 146]. Right wing: X [304, 384].
-            // Y is at the top of the window: [height - collapsedHeight, height].
-            let leftWingRect = NSRect(x: 66, y: height - stateManager.collapsedHeight, width: 80, height: stateManager.collapsedHeight)
-            let rightWingRect = NSRect(x: 304, y: height - stateManager.collapsedHeight, width: 80, height: stateManager.collapsedHeight)
+            // Collapsed: only the left/right wings of the centered pill are interactive.
+            let margin = (stateManager.expandedWidth - stateManager.collapsedWidth) / 2
+            let leftWingRect = NSRect(
+                x: margin,
+                y: height - stateManager.collapsedHeight,
+                width: 80,
+                height: stateManager.collapsedHeight
+            )
+            let rightWingRect = NSRect(
+                x: margin + stateManager.collapsedWidth - 80,
+                y: height - stateManager.collapsedHeight,
+                width: 80,
+                height: stateManager.collapsedHeight
+            )
             
             if leftWingRect.contains(point) || rightWingRect.contains(point) {
                 return super.hitTest(point)
@@ -53,16 +59,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         stateManager = NotchStateManager()
         
-        // Static frame: 450x320 centered at the top of the screen
+        // Static frame sized for the expanded dashboard, centered at the top of the screen
         let screen = NSScreen.screens.first
         let screenFrame = screen?.frame ?? NSRect(x: 0, y: 0, width: 1710, height: 1112)
         let topY = screenFrame.origin.y + screenFrame.size.height
+        let w = stateManager.expandedWidth
+        let h = stateManager.expandedHeight
         
         let windowFrame = NSRect(
-            x: screenFrame.origin.x + (screenFrame.size.width - 450) / 2,
-            y: topY - 320,
-            width: 450,
-            height: 320
+            x: screenFrame.origin.x + (screenFrame.size.width - w) / 2,
+            y: topY - h,
+            width: w,
+            height: h
         )
         
         window = NotchWindow(contentRect: windowFrame)
