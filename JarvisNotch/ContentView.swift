@@ -1,7 +1,6 @@
 import SwiftUI
 import AppKit
 import IOKit.ps
-import AVFoundation
 
 struct ContentView: View {
     @ObservedObject var stateManager: NotchStateManager
@@ -10,13 +9,13 @@ struct ContentView: View {
     @StateObject private var calendarService = CalendarService()
     @StateObject private var focusTimer = FocusTimerService()
     @StateObject private var quickNote = QuickNoteStore()
+    @StateObject private var aiSpendStore = AISpendStore()
     
     @State private var batteryPercentage: Int = 100
     @State private var isCharging: Bool = false
     @State private var systemVolume: Double = 50.0
     @State private var isTargetedForDrop: Bool = false
     @State private var droppedFiles: [URL] = []
-    @State private var isMirrorActive: Bool = false
     @State private var isShowingSettings: Bool = false
     
     let sysTimer = Timer.publish(every: 5, on: .main, in: .common).autoconnect()
@@ -201,7 +200,7 @@ struct ContentView: View {
             .padding(.horizontal, 14)
             .padding(.top, stateManager.collapsedHeight - 16 + 4)
             
-            // Dashboard strip: music + calendar + apps + note/focus + mirror
+            // Dashboard strip: music + calendar + apps + note/focus + AI spend limits
             HStack(alignment: .top, spacing: 10) {
                 musicCard
                 CalendarWidget(calendar: calendarService)
@@ -210,7 +209,7 @@ struct ContentView: View {
                     NoteWidget(note: quickNote)
                     FocusWidget(focus: focusTimer)
                 }
-                mirrorCard
+                AISpendWidget(store: aiSpendStore)
             }
             .padding(.horizontal, 12)
             .padding(.bottom, 10)
@@ -431,6 +430,18 @@ struct ContentView: View {
                 .buttonStyle(.plain)
             }
             .padding(.top, 2)
+            
+            HStack(spacing: 6) {
+                Image(systemName: systemVolume == 0 ? "speaker.slash.fill" : "speaker.wave.2.fill")
+                    .font(.system(size: 9))
+                    .foregroundColor(.white.opacity(0.7))
+                
+                Slider(value: $systemVolume, in: 0...100, onEditingChanged: { _ in
+                    setSystemVolume(to: systemVolume)
+                })
+                .accentColor(.purple)
+            }
+            .padding(.horizontal, 8)
         }
         .frame(width: 150, height: 215)
         .background(
@@ -438,107 +449,6 @@ struct ContentView: View {
                 .fill(Color.white.opacity(0.06))
                 .overlay(
                     RoundedRectangle(cornerRadius: 16)
-                        .stroke(Color.white.opacity(0.1), lineWidth: 1)
-                )
-        )
-    }
-    
-    private var mirrorCard: some View {
-        VStack(spacing: 4) {
-            HStack {
-                Image(systemName: isMirrorActive ? "camera.fill" : "camera.metering.unknown")
-                    .font(.system(size: 9))
-                    .foregroundColor(isMirrorActive ? .green : .purple)
-                Text("ESPEJO")
-                    .font(.system(size: 9, weight: .bold))
-                    .foregroundColor(.white.opacity(0.8))
-                
-                Spacer()
-                
-                Button(action: {
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        isMirrorActive.toggle()
-                    }
-                }) {
-                    HStack(spacing: 3) {
-                        Circle()
-                            .fill(isMirrorActive ? Color.green : Color.gray)
-                            .frame(width: 5, height: 5)
-                        Text(isMirrorActive ? "ON" : "OFF")
-                            .font(.system(size: 8, weight: .bold))
-                            .foregroundColor(isMirrorActive ? .green : .white.opacity(0.6))
-                    }
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(Capsule().fill(Color.white.opacity(0.1)))
-                }
-                .buttonStyle(.plain)
-            }
-            .padding(.horizontal, 2)
-            
-            ZStack {
-                if isMirrorActive {
-                    CameraMirrorView()
-                        .clipShape(RoundedRectangle(cornerRadius: 10))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 10)
-                                .stroke(Color.white.opacity(0.15), lineWidth: 1)
-                        )
-                } else {
-                    RoundedRectangle(cornerRadius: 10)
-                        .fill(Color.white.opacity(0.03))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 10)
-                                .stroke(Color.white.opacity(0.1), lineWidth: 1)
-                        )
-                        .overlay(
-                            VStack(spacing: 4) {
-                                Image(systemName: "video.slash.fill")
-                                    .font(.system(size: 14))
-                                    .foregroundColor(.white.opacity(0.3))
-                                Text("Cámara off")
-                                    .font(.system(size: 8, weight: .medium))
-                                    .foregroundColor(.white.opacity(0.4))
-                                Button("Activar") {
-                                    withAnimation(.easeInOut(duration: 0.2)) {
-                                        isMirrorActive = true
-                                    }
-                                }
-                                .font(.system(size: 9, weight: .bold))
-                                .foregroundColor(.purple)
-                                .buttonStyle(.plain)
-                            }
-                            .padding(.bottom, 18)
-                        )
-                }
-                
-                HStack(spacing: 6) {
-                    Image(systemName: systemVolume == 0 ? "speaker.slash.fill" : "speaker.wave.2.fill")
-                        .font(.system(size: 9))
-                        .foregroundColor(.white.opacity(0.8))
-                    
-                    Slider(value: $systemVolume, in: 0...100, onEditingChanged: { _ in
-                        setSystemVolume(to: systemVolume)
-                    })
-                    .accentColor(.purple)
-                }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 3)
-                .background(
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(Color.black.opacity(0.65))
-                )
-                .padding(4)
-                .frame(maxHeight: .infinity, alignment: .bottom)
-            }
-        }
-        .padding(8)
-        .frame(width: 150, height: 215)
-        .background(
-            RoundedRectangle(cornerRadius: 14)
-                .fill(Color.white.opacity(0.06))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 14)
                         .stroke(Color.white.opacity(0.1), lineWidth: 1)
                 )
         )
@@ -644,71 +554,6 @@ struct AudioWaveformView: View {
     }
 }
 
-// MARK: - Live Camera Mirror View
-struct CameraMirrorView: NSViewRepresentable {
-    func makeNSView(context: Context) -> AVCaptureVideoPreviewView {
-        let view = AVCaptureVideoPreviewView()
-        view.setupCamera()
-        return view
-    }
-    
-    func updateNSView(_ nsView: AVCaptureVideoPreviewView, context: Context) {}
-}
-
-class AVCaptureVideoPreviewView: NSView {
-    private var captureSession: AVCaptureSession?
-    private var previewLayer: AVCaptureVideoPreviewLayer?
-    
-    override init(frame frameRect: NSRect) {
-        super.init(frame: frameRect)
-        self.wantsLayer = true
-        self.layer?.cornerRadius = 10
-        self.layer?.masksToBounds = true
-    }
-    
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-    
-    func setupCamera() {
-        let session = AVCaptureSession()
-        session.sessionPreset = .medium
-        
-        guard let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .front) ?? AVCaptureDevice.default(for: .video) else {
-            return
-        }
-        
-        do {
-            let input = try AVCaptureDeviceInput(device: device)
-            if session.canAddInput(input) {
-                session.addInput(input)
-            }
-            
-            let previewLayer = AVCaptureVideoPreviewLayer(session: session)
-            previewLayer.videoGravity = .resizeAspectFill
-            previewLayer.frame = self.bounds
-            self.layer?.addSublayer(previewLayer)
-            self.previewLayer = previewLayer
-            
-            DispatchQueue.global(qos: .userInitiated).async {
-                session.startRunning()
-            }
-            self.captureSession = session
-        } catch {
-            print("Failed to access camera: \(error)")
-        }
-    }
-    
-    override func layout() {
-        super.layout()
-        previewLayer?.frame = self.bounds
-    }
-    
-    deinit {
-        captureSession?.stopRunning()
-    }
-}
-
 // MARK: - Vinyl Disc Component with Reliable Animation
 struct VinylDiscView: View {
     @ObservedObject var mediaService: MediaService
@@ -722,7 +567,7 @@ struct VinylDiscView: View {
                 Image(nsImage: artwork)
                     .resizable()
                     .aspectRatio(contentMode: .fill)
-                    .frame(width: 76, height: 76)
+                    .frame(width: 60, height: 60)
                     .clipShape(Circle())
                     .shadow(color: .black.opacity(0.5), radius: 4, x: 0, y: 2)
                     .overlay(
@@ -738,15 +583,15 @@ struct VinylDiscView: View {
                             endPoint: .bottomTrailing
                         )
                     )
-                    .frame(width: 76, height: 76)
+                    .frame(width: 60, height: 60)
                     .shadow(color: .black.opacity(0.5), radius: 4, x: 0, y: 2)
                 
                 Circle()
                     .stroke(Color.white.opacity(0.1), lineWidth: 1)
-                    .frame(width: 60, height: 60)
+                    .frame(width: 46, height: 46)
                 Circle()
                     .stroke(Color.white.opacity(0.08), lineWidth: 1)
-                    .frame(width: 44, height: 44)
+                    .frame(width: 34, height: 34)
                 
                 Circle()
                     .fill(
@@ -756,10 +601,10 @@ struct VinylDiscView: View {
                             endPoint: .bottomTrailing
                         )
                     )
-                    .frame(width: 26, height: 26)
+                    .frame(width: 22, height: 22)
                 
                 Image(systemName: mediaService.isPlaying ? "music.note" : "play.slash.fill")
-                    .font(.system(size: 11, weight: .bold))
+                    .font(.system(size: 10, weight: .bold))
                     .foregroundColor(.white)
             }
         }
