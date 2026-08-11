@@ -203,8 +203,8 @@ class QuickNoteStore: ObservableObject {
 
 // MARK: - App Launcher
 
-struct LaunchableApp: Identifiable {
-    let id = UUID()
+struct LaunchableApp: Identifiable, Equatable {
+    let id: String
     let name: String
     let symbol: String
     let tint: Color
@@ -213,25 +213,56 @@ struct LaunchableApp: Identifiable {
 }
 
 enum AppLauncher {
-    static let apps: [LaunchableApp] = [
-        LaunchableApp(name: "Safari", symbol: "safari.fill", tint: .blue,
+    static let catalog: [LaunchableApp] = [
+        LaunchableApp(id: "safari", name: "Safari", symbol: "safari.fill", tint: .blue,
                       bundleIds: ["com.apple.Safari"], pathHints: ["/Applications/Safari.app"]),
-        LaunchableApp(name: "Notas", symbol: "note.text", tint: .yellow,
-                      bundleIds: ["com.apple.Notes"], pathHints: ["/System/Applications/Notes.app"]),
-        LaunchableApp(name: "Mensajes", symbol: "message.fill", tint: .green,
-                      bundleIds: ["com.apple.MobileSMS"], pathHints: ["/System/Applications/Messages.app"]),
-        LaunchableApp(name: "Música", symbol: "music.note", tint: .pink,
-                      bundleIds: ["com.apple.Music"], pathHints: ["/System/Applications/Music.app"]),
-        LaunchableApp(name: "Spotify", symbol: "waveform", tint: .green,
-                      bundleIds: ["com.spotify.client"], pathHints: ["/Applications/Spotify.app"]),
-        LaunchableApp(name: "Terminal", symbol: "terminal.fill", tint: .gray,
-                      bundleIds: ["com.apple.Terminal"], pathHints: ["/System/Applications/Utilities/Terminal.app"]),
-        LaunchableApp(name: "Finder", symbol: "folder.fill", tint: .cyan,
+        LaunchableApp(id: "chrome", name: "Chrome", symbol: "globe", tint: Color(red: 0.26, green: 0.52, blue: 0.96),
+                      bundleIds: ["com.google.Chrome"], pathHints: ["/Applications/Google Chrome.app"]),
+        LaunchableApp(id: "arc", name: "Arc", symbol: "circle.hexagongrid.fill", tint: .purple,
+                      bundleIds: ["company.thebrowser.Browser"], pathHints: ["/Applications/Arc.app"]),
+        LaunchableApp(id: "finder", name: "Finder", symbol: "folder.fill", tint: .cyan,
                       bundleIds: ["com.apple.finder"], pathHints: ["/System/Library/CoreServices/Finder.app"]),
-        LaunchableApp(name: "Ajustes", symbol: "gearshape.fill", tint: .orange,
+        LaunchableApp(id: "notes", name: "Notas", symbol: "note.text", tint: .yellow,
+                      bundleIds: ["com.apple.Notes"], pathHints: ["/System/Applications/Notes.app"]),
+        LaunchableApp(id: "messages", name: "Mensajes", symbol: "message.fill", tint: .green,
+                      bundleIds: ["com.apple.MobileSMS"], pathHints: ["/System/Applications/Messages.app"]),
+        LaunchableApp(id: "mail", name: "Mail", symbol: "envelope.fill", tint: .blue,
+                      bundleIds: ["com.apple.mail"], pathHints: ["/System/Applications/Mail.app"]),
+        LaunchableApp(id: "calendar", name: "Calendario", symbol: "calendar", tint: .red,
+                      bundleIds: ["com.apple.iCal"], pathHints: ["/System/Applications/Calendar.app"]),
+        LaunchableApp(id: "music", name: "Música", symbol: "music.note", tint: .pink,
+                      bundleIds: ["com.apple.Music"], pathHints: ["/System/Applications/Music.app"]),
+        LaunchableApp(id: "spotify", name: "Spotify", symbol: "waveform", tint: .green,
+                      bundleIds: ["com.spotify.client"], pathHints: ["/Applications/Spotify.app"]),
+        LaunchableApp(id: "terminal", name: "Terminal", symbol: "terminal.fill", tint: .gray,
+                      bundleIds: ["com.apple.Terminal"], pathHints: ["/System/Applications/Utilities/Terminal.app"]),
+        LaunchableApp(id: "cursor", name: "Cursor", symbol: "chevron.left.forwardslash.chevron.right", tint: .cyan,
+                      bundleIds: ["com.todesktop.230313mzl4w4u92"], pathHints: ["/Applications/Cursor.app"]),
+        LaunchableApp(id: "vscode", name: "VS Code", symbol: "chevron.left.forwardslash.chevron.right", tint: .blue,
+                      bundleIds: ["com.microsoft.VSCode"], pathHints: ["/Applications/Visual Studio Code.app"]),
+        LaunchableApp(id: "xcode", name: "Xcode", symbol: "hammer.fill", tint: .blue,
+                      bundleIds: ["com.apple.dt.Xcode"], pathHints: ["/Applications/Xcode.app"]),
+        LaunchableApp(id: "slack", name: "Slack", symbol: "number", tint: .purple,
+                      bundleIds: ["com.tinyspeck.slackmacgap"], pathHints: ["/Applications/Slack.app"]),
+        LaunchableApp(id: "discord", name: "Discord", symbol: "bubble.left.and.bubble.right.fill", tint: .indigo,
+                      bundleIds: ["com.hnc.Discord"], pathHints: ["/Applications/Discord.app"]),
+        LaunchableApp(id: "notion", name: "Notion", symbol: "doc.richtext", tint: .white,
+                      bundleIds: ["notion.id"], pathHints: ["/Applications/Notion.app"]),
+        LaunchableApp(id: "figma", name: "Figma", symbol: "paintbrush.pointed.fill", tint: .pink,
+                      bundleIds: ["com.figma.Desktop"], pathHints: ["/Applications/Figma.app"]),
+        LaunchableApp(id: "settings", name: "Ajustes", symbol: "gearshape.fill", tint: .orange,
                       bundleIds: ["com.apple.systempreferences", "com.apple.Preferences"],
-                      pathHints: ["/System/Applications/System Settings.app"])
+                      pathHints: ["/System/Applications/System Settings.app"]),
+        LaunchableApp(id: "photos", name: "Fotos", symbol: "photo.fill", tint: .yellow,
+                      bundleIds: ["com.apple.Photos"], pathHints: ["/System/Applications/Photos.app"])
     ]
+    
+    /// Default first 6 for new installs
+    static let defaultSelectedIds: [String] = ["safari", "notes", "messages", "music", "spotify", "terminal"]
+    
+    static func app(id: String) -> LaunchableApp? {
+        catalog.first { $0.id == id }
+    }
     
     static func open(_ app: LaunchableApp) {
         for bid in app.bundleIds {
@@ -247,6 +278,48 @@ enum AppLauncher {
                 return
             }
         }
+    }
+}
+
+final class AppShortcutsStore: ObservableObject {
+    static let maxPinned = 6
+    private static let storageKey = "jarvisPinnedAppIds.v1"
+    
+    @Published var selectedIds: [String] {
+        didSet { UserDefaults.standard.set(selectedIds, forKey: Self.storageKey) }
+    }
+    
+    init() {
+        if let saved = UserDefaults.standard.array(forKey: Self.storageKey) as? [String], !saved.isEmpty {
+            // Keep only known catalog ids, preserve order
+            let known = Set(AppLauncher.catalog.map(\.id))
+            selectedIds = saved.filter { known.contains($0) }
+            if selectedIds.isEmpty {
+                selectedIds = AppLauncher.defaultSelectedIds
+            }
+        } else {
+            selectedIds = AppLauncher.defaultSelectedIds
+        }
+    }
+    
+    var pinnedApps: [LaunchableApp] {
+        selectedIds.compactMap { AppLauncher.app(id: $0) }
+    }
+    
+    func isSelected(_ id: String) -> Bool {
+        selectedIds.contains(id)
+    }
+    
+    func toggle(_ id: String) {
+        if let idx = selectedIds.firstIndex(of: id) {
+            selectedIds.remove(at: idx)
+        } else if selectedIds.count < Self.maxPinned {
+            selectedIds.append(id)
+        }
+    }
+    
+    func canSelectMore(beyond id: String) -> Bool {
+        isSelected(id) || selectedIds.count < Self.maxPinned
     }
 }
 
@@ -354,6 +427,7 @@ struct CalendarWidget: View {
 }
 
 struct AppsWidget: View {
+    @ObservedObject var shortcuts: AppShortcutsStore
     private let columns = [GridItem(.flexible()), GridItem(.flexible())]
     
     var body: some View {
@@ -364,26 +438,34 @@ struct AppsWidget: View {
                 .foregroundColor(.white.opacity(0.55))
                 .frame(maxWidth: .infinity, alignment: .leading)
             
-            LazyVGrid(columns: columns, spacing: 8) {
-                ForEach(AppLauncher.apps.prefix(6)) { app in
-                    Button(action: { AppLauncher.open(app) }) {
-                        VStack(spacing: 4) {
-                            Image(systemName: app.symbol)
-                                .font(.system(size: 13, weight: .semibold))
-                                .foregroundColor(app.tint)
-                                .frame(width: 28, height: 28)
-                                .background(RoundedRectangle(cornerRadius: 8).fill(app.tint.opacity(0.18)))
-                            Text(app.name)
-                                .font(.system(size: 7, weight: .bold))
-                                .foregroundColor(.white.opacity(0.7))
-                                .lineLimit(1)
+            if shortcuts.pinnedApps.isEmpty {
+                Text("Elige apps en Ajustes")
+                    .font(.system(size: 8, weight: .medium))
+                    .foregroundColor(.white.opacity(0.4))
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                LazyVGrid(columns: columns, spacing: 8) {
+                    ForEach(shortcuts.pinnedApps) { app in
+                        Button(action: { AppLauncher.open(app) }) {
+                            VStack(spacing: 4) {
+                                Image(systemName: app.symbol)
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundColor(app.tint)
+                                    .frame(width: 28, height: 28)
+                                    .background(RoundedRectangle(cornerRadius: 8).fill(app.tint.opacity(0.18)))
+                                Text(app.name)
+                                    .font(.system(size: 7, weight: .bold))
+                                    .foregroundColor(.white.opacity(0.7))
+                                    .lineLimit(1)
+                            }
+                            .frame(maxWidth: .infinity)
                         }
-                        .frame(maxWidth: .infinity)
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                 }
+                Spacer(minLength: 0)
             }
-            Spacer(minLength: 0)
         }
         .padding(10)
         .frame(width: 108, height: 215)
