@@ -346,6 +346,12 @@ struct ContentView: View {
             .padding(.horizontal, 16)
             .padding(.top, 4)
             
+            Text("YouTube en Chrome/Safari: activa “Allow JavaScript from Apple Events” en el menú Desarrollador del navegador, y permite Automatización a JarvisNotch.")
+                .font(.system(size: 8, weight: .medium))
+                .foregroundColor(.white.opacity(0.4))
+                .padding(.horizontal, 18)
+                .padding(.top, 2)
+            
             Spacer()
         }
         .frame(width: stateManager.expandedWidth, height: stateManager.expandedHeight)
