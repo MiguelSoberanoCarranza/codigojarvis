@@ -17,7 +17,7 @@
     <key>NSPrincipalClass</key>
     <string>NSApplication</string>
     <key>NSAppleEventsUsageDescription</key>
-    <string>JarvisNotch necesita controlar Spotify y Apple Music para mostrar la información del tema actual y habilitar los controles de reproducción.</string>
+    <string>JarvisNotch necesita controlar Spotify, Apple Music y leer pestañas de Safari/Chrome para mostrar lo que está reproduciéndose (incl. YouTube) y habilitar controles.</string>
     <key>NSLocationWhenInUseUsageDescription</key>
     <string>JarvisNotch necesita tu ubicación para obtener el clima local en tiempo real.</string>
     <key>NSCameraUsageDescription</key>

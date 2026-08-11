@@ -236,7 +236,7 @@ class MediaService: ObservableObject {
         }
     }
     
-    // MARK: - AppleScript Fallback (Spotify / Music)
+    // MARK: - AppleScript Fallback (Spotify / Music / Browsers)
     private func updateViaAppleScript(force: Bool) {
         let now = Date()
         if !force {
@@ -253,86 +253,9 @@ class MediaService: ObservableObject {
                 DispatchQueue.main.async { self.appleScriptBusy = false }
             }
             
-            // Spotify first (most common for Latin / streaming)
-            let spotifyScript = """
-            if application "Spotify" is running then
-                tell application "Spotify"
-                    try
-                        set pState to player state as string
-                        set tName to name of current track
-                        set aName to artist of current track
-                        set aUrl to artwork url of current track
-                        return pState & "|||" & tName & "|||" & aName & "|||" & aUrl
-                    on error errMsg
-                        return "error|||" & errMsg
-                    end try
-                end tell
-            else
-                return "notrunning"
-            end if
-            """
-            
-            let musicScript = """
-            if application "Music" is running then
-                tell application "Music"
-                    try
-                        set pState to player state as string
-                        set tName to name of current track
-                        set aName to artist of current track
-                        return pState & "|||" & tName & "|||" & aName
-                    on error errMsg
-                        return "error|||" & errMsg
-                    end try
-                end tell
-            else
-                return "notrunning"
-            end if
-            """
-            
-            if let spotifyRes = self.runAppleScript(spotifyScript),
-               spotifyRes != "notrunning",
-               !spotifyRes.hasPrefix("error|||"),
-               !spotifyRes.isEmpty {
-                let parts = spotifyRes.components(separatedBy: "|||")
-                if parts.count >= 3, !parts[1].isEmpty {
-                    let playingState = parts[0].lowercased()
-                    let playing = playingState.contains("play")
-                    let spotArtUrl = parts.count >= 4 ? parts[3] : nil
-                    self.logToFile("[MediaService] AppleScript Spotify: \(parts[1]) playing=\(playing)")
-                    DispatchQueue.main.async {
-                        self.emptyTicksCount = 0
-                        self.currentTitle = parts[1]
-                        self.currentArtist = parts[2]
-                        self.isPlaying = playing
-                        self.sourceApp = "Spotify"
-                        self.fetchAlbumArtwork(title: parts[1], artist: parts[2], spotifyArtworkUrl: spotArtUrl)
-                    }
-                    return
-                }
-            } else if let spotifyRes = self.runAppleScript(spotifyScript) {
-                self.logToFile("[MediaService] Spotify script: \(spotifyRes.prefix(120))")
-            }
-            
-            if let musicRes = self.runAppleScript(musicScript),
-               musicRes != "notrunning",
-               !musicRes.hasPrefix("error|||"),
-               !musicRes.isEmpty {
-                let parts = musicRes.components(separatedBy: "|||")
-                if parts.count >= 3, !parts[1].isEmpty {
-                    let playingState = parts[0].lowercased()
-                    let playing = playingState.contains("play")
-                    self.logToFile("[MediaService] AppleScript Music: \(parts[1]) playing=\(playing)")
-                    DispatchQueue.main.async {
-                        self.emptyTicksCount = 0
-                        self.currentTitle = parts[1]
-                        self.currentArtist = parts[2]
-                        self.isPlaying = playing
-                        self.sourceApp = "Music"
-                        self.fetchAlbumArtwork(title: parts[1], artist: parts[2])
-                    }
-                    return
-                }
-            }
+            if self.applyDesktopPlayerResult(self.querySpotify()) { return }
+            if self.applyDesktopPlayerResult(self.queryAppleMusic()) { return }
+            if self.applyBrowserResult(self.queryBrowsers()) { return }
             
             // Only clear UI after several consecutive misses (avoid flicker)
             DispatchQueue.main.async {
@@ -352,6 +275,328 @@ class MediaService: ObservableObject {
                 }
             }
         }
+    }
+    
+    private struct ScriptTrack {
+        let playing: Bool
+        let title: String
+        let artist: String
+        let source: String
+        let artworkURL: String?
+    }
+    
+    private func applyDesktopPlayerResult(_ track: ScriptTrack?) -> Bool {
+        guard let track = track else { return false }
+        logToFile("[MediaService] AppleScript \(track.source): \(track.title) playing=\(track.playing)")
+        DispatchQueue.main.async {
+            self.emptyTicksCount = 0
+            self.currentTitle = track.title
+            self.currentArtist = track.artist
+            self.isPlaying = track.playing
+            self.sourceApp = track.source
+            self.fetchAlbumArtwork(title: track.title, artist: track.artist, spotifyArtworkUrl: track.artworkURL)
+        }
+        return true
+    }
+    
+    private func applyBrowserResult(_ track: ScriptTrack?) -> Bool {
+        guard let track = track else { return false }
+        logToFile("[MediaService] Browser \(track.source): \(track.title) playing=\(track.playing)")
+        DispatchQueue.main.async {
+            self.emptyTicksCount = 0
+            self.currentTitle = track.title
+            self.currentArtist = track.artist
+            self.isPlaying = track.playing
+            self.sourceApp = track.source
+            self.fetchAlbumArtwork(title: track.title, artist: track.artist)
+        }
+        return true
+    }
+    
+    private func querySpotify() -> ScriptTrack? {
+        let script = """
+        if application "Spotify" is running then
+            tell application "Spotify"
+                try
+                    set pState to player state as string
+                    set tName to name of current track
+                    set aName to artist of current track
+                    set aUrl to artwork url of current track
+                    return pState & "|||" & tName & "|||" & aName & "|||" & aUrl
+                on error errMsg
+                    return "error|||" & errMsg
+                end try
+            end tell
+        else
+            return "notrunning"
+        end if
+        """
+        guard let res = runAppleScript(script),
+              res != "notrunning",
+              !res.hasPrefix("error|||"),
+              !res.isEmpty else { return nil }
+        let parts = res.components(separatedBy: "|||")
+        guard parts.count >= 3, !parts[1].isEmpty else { return nil }
+        return ScriptTrack(
+            playing: parts[0].lowercased().contains("play"),
+            title: parts[1],
+            artist: parts[2],
+            source: "Spotify",
+            artworkURL: parts.count >= 4 ? parts[3] : nil
+        )
+    }
+    
+    private func queryAppleMusic() -> ScriptTrack? {
+        let script = """
+        if application "Music" is running then
+            tell application "Music"
+                try
+                    set pState to player state as string
+                    set tName to name of current track
+                    set aName to artist of current track
+                    return pState & "|||" & tName & "|||" & aName
+                on error errMsg
+                    return "error|||" & errMsg
+                end try
+            end tell
+        else
+            return "notrunning"
+        end if
+        """
+        guard let res = runAppleScript(script),
+              res != "notrunning",
+              !res.hasPrefix("error|||"),
+              !res.isEmpty else { return nil }
+        let parts = res.components(separatedBy: "|||")
+        guard parts.count >= 3, !parts[1].isEmpty else { return nil }
+        return ScriptTrack(
+            playing: parts[0].lowercased().contains("play"),
+            title: parts[1],
+            artist: parts[2],
+            source: "Music",
+            artworkURL: nil
+        )
+    }
+    
+    /// Chrome / Safari / Brave / Edge / Arc — YouTube, YT Music, SoundCloud via JS (or tab title fallback).
+    private func queryBrowsers() -> ScriptTrack? {
+        let chromiumApps = [
+            "Google Chrome",
+            "Brave Browser",
+            "Microsoft Edge",
+            "Arc",
+            "Chromium",
+            "Vivaldi",
+            "Opera",
+            "Dia"
+        ]
+        
+        for appName in chromiumApps {
+            if let track = queryChromiumBrowser(appName: appName) {
+                return track
+            }
+        }
+        if let track = querySafari() {
+            return track
+        }
+        return nil
+    }
+    
+    private var mediaProbeJavaScript: String {
+        // Compact JS: returns playing|||title|||artist or none
+        """
+        (function(){try{var v=document.querySelector('video');if(!v)return 'none';var playing=(!v.paused&&!v.ended)?'playing':'paused';var title='',artist='Web',host=(location.hostname||'');if(host.indexOf('music.youtube')>=0){title=((document.querySelector('.title.ytmusic-player-bar')||{}).textContent||'');artist=((document.querySelector('.byline.ytmusic-player-bar')||{}).textContent||'YouTube Music');}else if(host.indexOf('youtube')>=0||host.indexOf('youtu.be')>=0){var tEl=document.querySelector('h1.ytd-watch-metadata yt-formatted-string,h1.title yt-formatted-string,#title h1,ytd-watch-metadata h1');title=(tEl&&tEl.textContent)||document.title.replace(/ - YouTube$/,'')||'';var aEl=document.querySelector('#channel-name a,ytd-channel-name a,#owner-name a,#text.ytd-channel-name');artist=(aEl&&aEl.textContent)||'YouTube';}else if(host.indexOf('soundcloud')>=0){title=((document.querySelector('.playbackSoundBadge__titleLink span[aria-hidden="true"],.playbackSoundBadge__titleLink')||{}).textContent||document.title||'');artist=((document.querySelector('.playbackSoundBadge__lightLink')||{}).textContent||'SoundCloud');}else{title=document.title||'';artist=host||'Browser';}title=(title||'').trim().replace(/\\s+/g,' ');artist=(artist||'').trim().replace(/\\s+/g,' ');if(!title)return 'none';return playing+'|||'+title+'|||'+artist;}catch(e){return 'none';}})()
+        """
+    }
+    
+    private func appleScriptEscapedJS(_ js: String) -> String {
+        js
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+    }
+    
+    private func queryChromiumBrowser(appName: String) -> ScriptTrack? {
+        let runningCheck = """
+        if application "\(appName)" is running then
+            return "yes"
+        else
+            return "no"
+        end if
+        """
+        guard runAppleScript(runningCheck) == "yes" else { return nil }
+        
+        let js = appleScriptEscapedJS(mediaProbeJavaScript)
+        let script = """
+        tell application "\(appName)"
+            try
+                repeat with w in windows
+                    repeat with t in tabs of w
+                        try
+                            set u to URL of t as string
+                            if u contains "youtube.com" or u contains "youtu.be" or u contains "music.youtube.com" or u contains "soundcloud.com" then
+                                set r to execute t javascript "\(js)"
+                                if r is not "none" and r is not missing value and r is not "" then
+                                    return r & "|||\(appName)"
+                                end if
+                            end if
+                        end try
+                    end repeat
+                end repeat
+            on error errMsg
+                return "error|||" & errMsg
+            end try
+        end tell
+        return "none"
+        """
+        
+        if let res = runAppleScript(script),
+           res != "none",
+           !res.hasPrefix("error|||"),
+           let track = parseBrowserScriptResult(res, defaultSource: appName) {
+            return track
+        }
+        
+        // Fallback: active tab title (no JS permission required)
+        return queryChromiumActiveTabTitle(appName: appName)
+    }
+    
+    private func queryChromiumActiveTabTitle(appName: String) -> ScriptTrack? {
+        let script = """
+        tell application "\(appName)"
+            try
+                repeat with w in windows
+                    set t to active tab of w
+                    set u to URL of t as string
+                    set n to title of t as string
+                    if u contains "youtube.com/watch" or u contains "youtu.be/" or u contains "music.youtube.com" or u contains "soundcloud.com" then
+                        return "playing|||" & n & "|||\(appName)|||" & u
+                    end if
+                end repeat
+            end try
+        end tell
+        return "none"
+        """
+        guard let res = runAppleScript(script), res != "none" else { return nil }
+        return parseBrowserTabTitleResult(res, defaultSource: appName)
+    }
+    
+    private func querySafari() -> ScriptTrack? {
+        let runningCheck = """
+        if application "Safari" is running then
+            return "yes"
+        else
+            return "no"
+        end if
+        """
+        guard runAppleScript(runningCheck) == "yes" else { return nil }
+        
+        let js = appleScriptEscapedJS(mediaProbeJavaScript)
+        let script = """
+        tell application "Safari"
+            try
+                repeat with w in windows
+                    repeat with t in tabs of w
+                        try
+                            set u to URL of t as string
+                            if u contains "youtube.com" or u contains "youtu.be" or u contains "music.youtube.com" or u contains "soundcloud.com" then
+                                set r to do JavaScript "\(js)" in t
+                                if r is not "none" and r is not missing value and r is not "" then
+                                    return r & "|||Safari"
+                                end if
+                            end if
+                        end try
+                    end repeat
+                end repeat
+            on error errMsg
+                return "error|||" & errMsg
+            end try
+        end tell
+        return "none"
+        """
+        
+        if let res = runAppleScript(script),
+           res != "none",
+           !res.hasPrefix("error|||"),
+           let track = parseBrowserScriptResult(res, defaultSource: "Safari") {
+            return track
+        }
+        
+        let titleScript = """
+        tell application "Safari"
+            try
+                repeat with w in windows
+                    set t to current tab of w
+                    set u to URL of t as string
+                    set n to name of t as string
+                    if u contains "youtube.com/watch" or u contains "youtu.be/" or u contains "music.youtube.com" or u contains "soundcloud.com" then
+                        return "playing|||" & n & "|||Safari|||" & u
+                    end if
+                end repeat
+            end try
+        end tell
+        return "none"
+        """
+        guard let res = runAppleScript(titleScript), res != "none" else { return nil }
+        return parseBrowserTabTitleResult(res, defaultSource: "Safari")
+    }
+    
+    private func parseBrowserScriptResult(_ res: String, defaultSource: String) -> ScriptTrack? {
+        // playing|||title|||artist|||SourceApp
+        let parts = res.components(separatedBy: "|||")
+        guard parts.count >= 3, !parts[1].isEmpty else { return nil }
+        let source = parts.count >= 4 ? parts[3] : defaultSource
+        return ScriptTrack(
+            playing: parts[0].lowercased().contains("play"),
+            title: cleanBrowserTitle(parts[1]),
+            artist: parts[2].isEmpty ? source : parts[2],
+            source: source,
+            artworkURL: nil
+        )
+    }
+    
+    private func parseBrowserTabTitleResult(_ res: String, defaultSource: String) -> ScriptTrack? {
+        // playing|||tabTitle|||Source|||url
+        let parts = res.components(separatedBy: "|||")
+        guard parts.count >= 2, !parts[1].isEmpty else { return nil }
+        let source = parts.count >= 3 ? parts[2] : defaultSource
+        let (title, artist) = splitBrowserTabTitle(parts[1], source: source)
+        return ScriptTrack(
+            playing: true, // title fallback can't know pause; assume active media tab is playing
+            title: title,
+            artist: artist,
+            source: source,
+            artworkURL: nil
+        )
+    }
+    
+    private func cleanBrowserTitle(_ raw: String) -> String {
+        var t = raw
+        let suffixes = [" - YouTube Music", " - YouTube", " | SoundCloud", " - SoundCloud"]
+        for s in suffixes {
+            if t.hasSuffix(s) {
+                t = String(t.dropLast(s.count))
+            }
+        }
+        return t.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+    
+    private func splitBrowserTabTitle(_ raw: String, source: String) -> (String, String) {
+        let cleaned = cleanBrowserTitle(raw)
+        // YouTube Music often: "Song • Artist" or "Song - Artist"
+        if cleaned.contains(" • ") {
+            let bits = cleaned.components(separatedBy: " • ")
+            if bits.count >= 2 {
+                return (bits[0].trimmingCharacters(in: .whitespaces), bits[1].trimmingCharacters(in: .whitespaces))
+            }
+        }
+        if cleaned.contains(" - ") {
+            let bits = cleaned.components(separatedBy: " - ")
+            if bits.count >= 2 {
+                // "Title - Channel" (YouTube) → title + channel as artist
+                return (bits[0].trimmingCharacters(in: .whitespaces), bits.dropFirst().joined(separator: " - ").trimmingCharacters(in: .whitespaces))
+            }
+        }
+        return (cleaned, source)
     }
     
     private func runAppleScript(_ source: String) -> String? {
