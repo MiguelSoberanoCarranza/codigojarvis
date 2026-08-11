@@ -29,6 +29,7 @@ swiftc -O -o JarvisNotch.app/Contents/MacOS/JarvisNotch \
     MediaService.swift \
     WeatherService.swift \
     DashboardExtras.swift \
+    AISpendTracker.swift \
     -framework Cocoa \
     -framework SwiftUI \
     -framework IOKit \
